@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Floor Plan Studio - Редактор и Генератор</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f2f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+        h1 {
+            margin-top: 0;
+            color: #1a202c;
+            border-bottom: 2px solid #edf2f7;
+            padding-bottom: 10px;
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            align-items: center;
+        }
+        .toolbar-generation {
+            background: #ebf8ff;
+            border-color: #bee3f8;
+        }
+        .tool-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        label {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        select, input[type="number"] {
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e0;
+            background: white;
+            outline: none;
+        }
+        button, input[type="file"] {
+            padding: 10px 16px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e0;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover {
+            background: #edf2f7;
+        }
+        button.active {
+            background: #3182ce;
+            color: white;
+            border-color: #3182ce;
+        }
+        .btn-success {
+            background: #38a169;
+            color: white;
+            border: none;
+        }
+        .btn-success:hover {
+            background: #2f855a;
+        }
+        .btn-blue {
+            background: #3182ce;
+            color: white;
+            border: none;
+        }
+        .btn-blue:hover {
+            background: #2b6cb0;
+        }
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+            border: none;
+        }
+        .btn-danger:hover {
+            background: #c53030;
+        }
+        #canvas-container {
+            position: relative;
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            overflow: auto;
+            background: #fdfdfd;
+            max-height: 70vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            font-size: 13px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .color-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Floor Plan Studio — Панель разметки и генерации</h1>
+
+        <!-- МОДУЛЬ ГЕНЕРАЦИИ ПЛАНИРОВОК ПО ТЗ -->
+        <div class="toolbar toolbar-generation">
+            <div class="tool-group">
+                <strong style="color: #2b6cb0;">🏠 Генератор новых планировок:</strong>
+
+                <label for="shape_select">Форма контура:</label>
+                <select id="shape_select">
+                    <option value="square">Прямоугольник</option>
+                    <option value="l_shape">Г-образный контур</option>
+                </select>
+
+                <label for="area_input">Площадь (кв.м):</label>
+                <input type="number" id="area_input" value="60" min="20" max="200" style="width: 70px;">
+
+                <button onclick="triggerGeneration()" class="btn-blue">✨ Сгенерировать схему</button>
+            </div>
+        </div>
+
+        <!-- МОДУЛЬ СТАНДАРТНОЙ РАЗМЕТКИ -->
+        <div class="toolbar">
+            <!-- Загрузка и Авторазметка -->
+            <div class="tool-group">
+                <input type="file" id="fileInput" accept="image/*">
+                <button onclick="uploadImage()" class="btn-success">🤖 Авто-разметка (YOLO)</button>
+            </div>
+
+            <div class="tool-group" style="border-left: 2px solid #e2e8f0; padding-left: 15px;">
+                <label>Режим редактора:</label>
+                <button id="btn-edit-mode" class="active" onclick="setMode('edit')">✏️ Изменение точек</button>
+                <button id="btn-draw-mode" onclick="setMode('draw')">➕ Рисование вручную</button>
+            </div>
+
+            <div class="tool-group" id="draw-options" style="display: none;">
+                <label>Тип объекта:</label>
+                <button id="btn-label-wall" class="active" onclick="setActiveLabel('wall')">Стена</button>
+                <button id="btn-label-window" onclick="setActiveLabel('window')">Окно</button>
+                <button id="btn-label-door" onclick="setActiveLabel('door')">Дверь</button>
+            </div>
+
+            <div class="tool-group" style="margin-left: auto;">
+                <button onclick="deleteSelected()" class="btn-danger">🗑️ Удалить элемент</button>
+                <button onclick="exportCoco()" class="btn-success">💾 Экспорт COCO JSON</button>
+            </div>
+        </div>
+
+        <!-- ИНТЕРАКТИВНЫЙ ХОЛСТ CANVAS -->
+        <div id="canvas-container">
+            <canvas id="editorCanvas"></canvas>
+        </div>
+
+        <!-- ЛЕГЕНДА ЦВЕТОВ -->
+        <div class="legend">
+            <div class="legend-item"><div class="color-box" style="background: rgba(255, 0, 0, 0.35); border: 2px solid red;"></div> Стены (Wall)</div>
+            <div class="legend-item"><div class="color-box" style="background: rgba(0, 255, 255, 0.35); border: 2px solid cyan;"></div> Окна (Window)</div>
+            <div class="legend-item"><div class="color-box" style="background: rgba(0, 255, 0, 0.35); border: 2px solid green;"></div> Двери (Door)</div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const canvas = document.getElementById('editorCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let currentImage = new Image();
+        let currentAnnotations = []; // Массив полигонов: { label: 'wall', points: [[x,y], ...] }
+
+        // Переменные состояния редактора
+        let mode = 'edit'; // 'edit' или 'draw'
+        let activeLabel = 'wall'; // 'wall', 'window', 'door'
+
+        let selectedPolygonIndex = null;
+        let selectedPointIndex = null;
+        let isDragging = false;
+
+        let newPolygonPoints = []; // Буфер для рисования новых элементов
+        const clickThreshold = 10; // Зона захвата точки (в пикселях)
+
+        // Палитра цветов для классов
+        const colors = {
+            'wall': { fill: 'rgba(255, 0, 0, 0.35)', stroke: 'red' },
+            'window': { fill: 'rgba(0, 255, 255, 0.35)', stroke: 'cyan' },
+            'door': { fill: 'rgba(0, 255, 0, 0.35)', stroke: 'green' }
+        };
+
+        // Переключение режимов (Редактирование / Рисование)
+        function setMode(newMode) {
+            mode = newMode;
+            document.getElementById('btn-edit-mode').classList.toggle('active', mode === 'edit');
+            document.getElementById('btn-draw-mode').classList.toggle('active', mode === 'draw');
+            document.getElementById('draw-options').style.display = mode === 'draw' ? 'flex' : 'none';
+
+            // Сбрасываем временные переменные
+            newPolygonPoints = [];
+            selectedPolygonIndex = null;
+            selectedPointIndex = null;
+            redraw();
+        }
+
+        // Выбор класса при ручном рисовании
+        function setActiveLabel(label) {
+            activeLabel = label;
+            document.getElementById('btn-label-wall').classList.toggle('active', label === 'wall');
+            document.getElementById('btn-label-window').classList.toggle('active', label === 'window');
+            document.getElementById('btn-label-door').classList.toggle('active', label === 'door');
+        }
+
+        // 1. АВТО-РАЗМЕТКА ЧЕРЕЗ БЭКЕНД (YOLOv8)
+        async function uploadImage() {
+            if (!fileInput.files[0]) return alert("Сначала выберите файл планировки!");
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            // Визуальный индикатор процесса распознавания
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#333";
+            ctx.font = "20px Arial";
+            ctx.fillText("Нейросеть распознает планировку, подождите...", 50, 50);
+
+            try {
+                const response = await fetch('/upload', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                if (data.error) {
+                    alert("Ошибка сервера: " + data.error);
+                    return;
+                }
+
+                // Отрисовываем картинку и полученные полигоны
+                currentAnnotations = data.annotations;
+                currentImage.src = data.image_url;
+                currentImage.onload = () => {
+                    canvas.width = currentImage.width;
+                    canvas.height = currentImage.height;
+                    redraw();
+                };
+            } catch (err) {
+                alert("Не удалось связаться с сервером при авто-разметке.");
+            }
+        }
+
+        // 2. ГЕНЕРАЦИЯ ПЛАНИРОВКИ С НУЛЯ (U-Net)[cite: 1]
+        // Исправленная функция в templates/index.html
+        async function triggerGeneration() {
+            const shape = document.getElementById('shape_select').value;
+            const area = document.getElementById('area_input').value;
+
+            // 1. Полностью сбрасываем старую разметку и выделения
+            currentAnnotations = [];
+            newPolygonPoints = [];
+            selectedPolygonIndex = null;
+            selectedPointIndex = null;
+
+            // 2. Очищаем холст визуально и пишем статус
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#2b6cb0";
+            ctx.font = "20px Arial";
+            ctx.fillText("Генератор U-Net строит планировку, подождите...", 50, 50);
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shape_type: shape, area: parseFloat(area) })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    // 3. Создаем объект изображения "с нуля" для обхода кэша браузера
+                    const newImg = new Image();
+
+                    // Добавляем случайный параметр в конец URL на случай жесткого кэша
+                    newImg.src = data.output_url + '?t=' + new Date().getTime();
+
+                    newImg.onload = () => {
+                        currentImage = newImg; // Перезаписываем глобальный объект картинки
+                        canvas.width = currentImage.width;
+                        canvas.height = currentImage.height;
+                        redraw(); // Отрисовываем чистый новый фон без старых полигонов
+                    };
+                } else {
+                    alert("Не удалось сгенерировать планировку.");
+                }
+            } catch (err) {
+                alert("Ошибка сетевого запроса к генератору.");
+            }
+        }
+
+        // Расчет расстояния между точками
+        function distance(p1, p2) {
+            return Math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2);
+        }
+
+        // Получение точных координат клика по Canvas
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return [
+                (e.clientX - rect.left) * scaleX,
+                (e.clientY - rect.top) * scaleY
+            ];
+        }
+
+        // Функция отрисовки Canvas
+        function redraw() {
+            if (!currentImage.src) return;
+
+            // 1. Отрисовываем фоновое изображение
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(currentImage, 0, 0);
+
+            // 2. Отрисовываем полигоны разметки
+            currentAnnotations.forEach((ann, polyIdx) => {
+                const style = colors[ann.label] || { fill: 'rgba(128,128,128,0.3)', stroke: 'gray' };
+
+                ctx.beginPath();
+                ann.points.forEach((pt, ptIdx) => {
+                    if (ptIdx === 0) ctx.moveTo(pt[0], pt[1]);
+                    else ctx.lineTo(pt[0], pt[1]);
+                });
+                ctx.closePath();
+
+                // Стилизация заливки и контуров
+                ctx.fillStyle = style.fill;
+                ctx.fill();
+                ctx.lineWidth = selectedPolygonIndex === polyIdx ? 4 : 2;
+                ctx.strokeStyle = selectedPolygonIndex === polyIdx ? '#ff9900' : style.stroke; // Оранжевая рамка для выделенного
+                ctx.stroke();
+
+                // Отрисовка интерактивных узловых точек в режиме редактирования
+                if (mode === 'edit') {
+                    ann.points.forEach((pt, ptIdx) => {
+                        ctx.beginPath();
+                        ctx.arc(pt[0], pt[1], 6, 0, 2 * Math.PI);
+                        ctx.fillStyle = (selectedPolygonIndex === polyIdx && selectedPointIndex === ptIdx) ? '#ff9900' : 'white';
+                        ctx.strokeStyle = '#333';
+                        ctx.lineWidth = 1.5;
+                        ctx.fill();
+                        ctx.stroke();
+                    });
+                }
+            });
+
+            // 3. Отрисовка строящегося вручную контура
+            if (mode === 'draw' && newPolygonPoints.length > 0) {
+                ctx.beginPath();
+                newPolygonPoints.forEach((pt, idx) => {
+                    if (idx === 0) ctx.moveTo(pt[0], pt[1]);
+                    else ctx.lineTo(pt[0], pt[1]);
+                });
+                ctx.strokeStyle = colors[activeLabel].stroke;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                newPolygonPoints.forEach(pt => {
+                    ctx.beginPath();
+                    ctx.arc(pt[0], pt[1], 4, 0, 2 * Math.PI);
+                    ctx.fillStyle = colors[activeLabel].stroke;
+                    ctx.fill();
+                });
+            }
+        }
+
+        // ОБРАБОТЧИКИ СОБЫТИЙ ДЛЯ ИНТЕРАКТИВНОСТИ
+
+        canvas.addEventListener('mousedown', (e) => {
+            const mousePos = getMousePos(e);
+
+            if (mode === 'edit') {
+                // Поиск точки полигона для перетаскивания
+                for (let i = 0; i < currentAnnotations.length; i++) {
+                    const points = currentAnnotations[i].points;
+                    for (let j = 0; j < points.length; j++) {
+                        if (distance(mousePos, points[j]) < clickThreshold) {
+                            selectedPolygonIndex = i;
+                            selectedPointIndex = j;
+                            isDragging = true;
+                            redraw();
+                            return;
+                        }
+                    }
+                }
+
+                // Клик мимо точек сбрасывает выделение
+                selectedPolygonIndex = null;
+                selectedPointIndex = null;
+                redraw();
+
+            } else if (mode === 'draw') {
+                // Добавление новой точки в буфер создаваемой фигуры
+                if (e.button === 0) {
+                    newPolygonPoints.push(mousePos);
+                    redraw();
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (mode === 'edit' && isDragging && selectedPolygonIndex !== null && selectedPointIndex !== null) {
+                const mousePos = getMousePos(e);
+                currentAnnotations[selectedPolygonIndex].points[selectedPointIndex] = mousePos;
+                redraw();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // Завершение рисования нового полигона по двойному клику
+        canvas.addEventListener('dblclick', (e) => {
+            if (mode === 'draw' && newPolygonPoints.length >= 3) {
+                currentAnnotations.push({
+                    label: activeLabel,
+                    points: [...newPolygonPoints]
+                });
+                newPolygonPoints = [];
+                redraw();
+            }
+        });
+
+        // Удаление выделенного объекта
+        function deleteSelected() {
+            if (selectedPolygonIndex !== null) {
+                currentAnnotations.splice(selectedPolygonIndex, 1);
+                selectedPolygonIndex = null;
+                selectedPointIndex = null;
+                redraw();
+            } else {
+                alert("Сначала выделите точку на элементе, который нужно удалить!");
+            }
+        }
+
+        // Экспорт итогового результата в файл COCO JSON[cite: 1]
+        async function exportCoco() {
+            if (currentAnnotations.length === 0) {
+                alert("Нет данных разметки для экспорта!");
+                return;
+            }
+
+            const formattedAnnotations = currentAnnotations.map((ann, index) => {
+                const xs = ann.points.map(p => p[0]);
+                const ys = ann.points.map(p => p[1]);
+                const xMin = Math.min(...xs);
+                const yMin = Math.min(...ys);
+                const width = Math.max(...xs) - xMin;
+                const height = Math.max(...ys) - yMin;
+
+                const categoryIdMap = { 'wall': 1, 'window': 2, 'door': 3 };
+
+                return {
+                    "id": index + 1,
+                    "image_id": 1,
+                    "category_id": categoryIdMap[ann.label] || 1,
+                    "segmentation": [ann.points.flat()],
+                    "bbox": [xMin, yMin, width, height],
+                    "area": width * height,
+                    "iscrowd": 0
+                };
+            });
+
+            const payload = {
+                images: [{
+                    "id": 1,
+                    "file_name": "floor_plan.jpg",
+                    "width": canvas.width,
+                    "height": canvas.height
+                }],
+                annotations: formattedAnnotations
+            };
+
+            try {
+                const response = await fetch('/export', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const link = document.createElement('a');
+                    link.href = window.URL.createObjectURL(blob);
+                    link.download = "coco_dataset.json";
+                    link.click();
+                } else {
+                    alert("Ошибка при экспорте на сервере.");
+                }
+            } catch (err) {
+                alert("Не удалось связаться с сервером для экспорта.");
+            }
+        }
+    </script>
+</body>
+</html>

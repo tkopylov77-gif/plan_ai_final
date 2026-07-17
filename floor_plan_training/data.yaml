@@ -1,0 +1,11 @@
+# data.yaml
+path: C:/Users/kazax/PycharmProjects/gemeni/floor_plan_training # Абсолютный путь исключает сбои в Windows
+train: train/images
+val: val/images
+
+# Описание классов ( wall - 0, window - 1, door - 2)
+nc: 3
+names:
+  0: wall
+  1: window
+  2: door
