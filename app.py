@@ -59,7 +59,7 @@ def upload_file():
     file.save(filepath)
 
     # Запускаем наш красивый детектор в одну строчку кода!
-    annotations = detector.detect(filepath, conf=0.015)
+    annotations = detector.detect(filepath, conf=0.15)
 
     # Приводим путь к единому веб-стандарту
     web_image_path = filepath.replace("\\", "/")

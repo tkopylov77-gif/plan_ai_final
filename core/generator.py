@@ -16,7 +16,7 @@ class LayoutGenerator:
             self.model.load_state_dict(torch.load(weights_path, map_location=self.device))
             print(f" Успешно загружены веса генератора: {weights_path}")
         else:
-            print("⚠ Веса генератора не найдены. Модуль запущен в режиме генерации псевдо-случайных шаблонов!")
+            print(" Веса генератора не найдены. Модуль запущен в режиме генерации псевдо-случайных шаблонов!")
             self.model = None
 
         # Стандартные трансформации для Pix2Pix моделей

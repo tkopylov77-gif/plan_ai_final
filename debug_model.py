@@ -8,17 +8,17 @@ MODEL_PATH = 'models/best_seg.pt'
 # Укажите здесь имя любой вашей картинки из папки raw_data
 TEST_IMAGE = 'raw_data/plan_00'
 
-print("=== 🔍 ЗАПУСК ДИАГНОСТИКИ МОДЕЛИ ===")
+print("===  ЗАПУСК ДИАГНОСТИКИ МОДЕЛИ ===")
 
 # 1. Проверяем видеокарту
 print(f"Используется CUDA (видеокарта NVIDIA): {torch.cuda.is_available()}")
 
 # 2. Проверяем наличие файлов
 if not os.path.exists(MODEL_PATH):
-    print(f"❌ ОШИБКА: Файл модели '{MODEL_PATH}' не найден!")
+    print(f" ОШИБКА: Файл модели '{MODEL_PATH}' не найден!")
     exit()
 else:
-    print(f"✅ Файл модели найден: {MODEL_PATH}")
+    print(f" Файл модели найден: {MODEL_PATH}")
 
 if not os.path.exists(TEST_IMAGE):
     # Если указанного файла нет, попробуем взять любой подходящий из raw_data
@@ -26,7 +26,7 @@ if not os.path.exists(TEST_IMAGE):
         files = [f for f in os.listdir('raw_data') if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
         if files:
             TEST_IMAGE = os.path.join('raw_data', files[0])
-            print(f"⚠ Файл не найден. Используем для теста: {TEST_IMAGE}")
+            print(f" Файл не найден. Используем для теста: {TEST_IMAGE}")
         else:
             print(" ОШИБКА: В папке 'raw_data' нет картинок для теста!")
             exit()
@@ -48,11 +48,11 @@ try:
     results = model(TEST_IMAGE, conf=0.01)
     result = results[0]
 
-    print("\n--- 📋 КРАТКИЙ ОТЧЕТ YOLO ---")
+    print("\n---  КРАТКИЙ ОТЧЕТ YOLO ---")
     # Метод verbose() выведет в консоль список найденных классов, например: "1 wall, 2 windows"
     print(result.verbose() if result.verbose() else "Ничего не найдено")
 
-    print("\n--- 🔧 ДЕТАЛЬНЫЙ АНАЛИЗ ---")
+    print("\n---  ДЕТАЛЬНЫЙ АНАЛИЗ ---")
     boxes = result.boxes
     masks = result.masks
 

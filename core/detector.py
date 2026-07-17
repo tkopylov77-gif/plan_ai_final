@@ -8,10 +8,10 @@ class LayoutDetector:
         """Инициализация детектора YOLOv8"""
         if os.path.exists(weights_path):
             self.model = YOLO(weights_path)
-            print(f"✅ Успешно загружена модель детектора: {weights_path}")
+            print(f" Успешно загружена модель детектора: {weights_path}")
         else:
             self.model = None
-            print(f"⚠️ Файл весов детектора не найден по пути: {weights_path}")
+            print(f"⚠ Файл весов детектора не найден по пути: {weights_path}")
 
     def detect(self, image_path, conf=0.05):
         """
